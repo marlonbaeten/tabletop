@@ -101,11 +101,6 @@
       this.log("You passed a new Google Spreadsheets url as the key! Attempting to parse.");
       this.key = this.key.match("d\\/(.*?)\\/pubhtml")[1];
     }
-    
-    if(/spreadsheets\/d/.test(this.key)) {
-      this.log("You passed the most recent version of Google Spreadsheets url as the key! Attempting to parse.");
-      this.key = this.key.match("d\\/(.*?)\/")[1];
-    }
 
     if(!this.key) {
       this.log("You need to pass Tabletop a key!");
@@ -179,13 +174,17 @@
       var xhr = inLegacyIE ? new XDomainRequest() : new XMLHttpRequest();
       xhr.open("GET", this.endpoint + path);
       var self = this;
-      xhr.onload = function() {
-        try {
-          var json = JSON.parse(xhr.responseText);
-        } catch (e) {
-          console.error(e);
+      xhr.onload = function(event) {
+        if (event.target.status === 200) {
+            try {
+                var json = JSON.parse(xhr.responseText);
+            } catch (e) {
+                console.error(e);
+            }
+            callback.call(self, json);
+        } else {
+            callback.call(self, null, event.target.response);
         }
-        callback.call(self, json);
       };
       xhr.send();
     },
@@ -306,9 +305,15 @@
 
       Used as a callback for the worksheet-based JSON
     */
-    loadSheets: function(data) {
+    loadSheets: function(data, error) {
       var i, ilen;
       var toLoad = [];
+
+      if (!data) {
+        this.callback(null, null, error)
+        return;
+      }
+
       this.googleSheetName = data.feed.title.$t;
       this.foundSheetNames = [];
 
@@ -325,8 +330,7 @@
             json_path += 'json-in-script';
           }
           if(this.query) {
-            // Query Language Reference (0.7)
-            json_path += "&tq=" + this.query;
+            json_path += "&sq=" + this.query;
           }
           if(this.orderby) {
             json_path += "&orderby=column:" + this.orderby.toLowerCase();
